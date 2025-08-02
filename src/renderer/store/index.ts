@@ -874,18 +874,107 @@ class Store {
   }
 
   doMove(move: Move): void {
+    console.log(`[DEBUG] doMove called: appState=${this.appState}, move=${move.toString()}`);
+    
+    if (this.appState === AppState.PRACTICE_MODE) {
+      console.log(`[DEBUG] doMove: Handling practice mode move`);
+      this.handlePracticeModeMove(move);
+      console.log(`[DEBUG] doMove: handlePracticeModeMove completed`);
+      return;
+    }
     if (this.appState !== AppState.NORMAL) {
+      console.log(`[DEBUG] doMove: Not in NORMAL state (${this.appState}), ignoring move`);
       return;
     }
-    if (!this.recordManager.appendMove({ move })) {
+    console.log(`[DEBUG] doMove: In NORMAL mode, calling appendMove`);
+    const appendResult = this.recordManager.appendMove({ move });
+    console.log(`[DEBUG] doMove: appendMove result=${appendResult}`);
+    if (!appendResult) {
+      console.log(`[DEBUG] doMove: Failed to append move`);
       return;
     }
+    console.log(`[DEBUG] doMove: Move appended successfully, playing sound`);
     const appSettings = useAppSettings();
     // An exception may be thrown if the audio API is not supported.
     try {
       playPieceBeat(appSettings.pieceVolume);
     } catch (e) {
       useErrorStore().add(e);
+    }
+    console.log(`[DEBUG] doMove: completed`);
+  }
+
+  private handlePracticeModeMove(move: Move): void {
+    console.log(`[DEBUG] handlePracticeModeMove: start, move=${move.toString()}`);
+    
+    // 現在の棋譜の状況を詳しく確認
+    const currentRecord = this.recordManager.record;
+    const current = currentRecord.current;
+    console.log(`[DEBUG] handlePracticeModeMove: current ply=${current.ply}`);
+    console.log(`[DEBUG] handlePracticeModeMove: current.isLastMove=${current.isLastMove}`);
+    console.log(`[DEBUG] handlePracticeModeMove: current.next exists=${!!current.next}`);
+    console.log(`[DEBUG] handlePracticeModeMove: current.next?.move exists=${!!current.next?.move}`);
+    console.log(`[DEBUG] handlePracticeModeMove: total moves in record=${currentRecord.moves.length}`);
+    
+    // 現在の局面で次に進むべき手があるか確認（手を追加する前に確認）
+    const expectedMove = current.next?.move;
+    console.log(`[DEBUG] handlePracticeModeMove: expectedMove=${expectedMove ? expectedMove.toString() : 'null'}`);
+    
+    if (!expectedMove) {
+      console.log(`[DEBUG] handlePracticeModeMove: no expected move (end of record), ignoring move`);
+      return;
+    }
+
+    console.log(`[DEBUG] handlePracticeModeMove: current move equals expected? ${expectedMove instanceof Move && expectedMove.equals(move)}`);
+
+    if (expectedMove instanceof Move && expectedMove.equals(move)) {
+      console.log(`[DEBUG] handlePracticeModeMove: correct move, playing sound and advancing`);
+      // 正解手：音を鳴らして手を追加し、相手の手（次の手）に0.5秒遅延で自動進行
+      const appendResult = this.recordManager.appendMove({ move });
+      console.log(`[DEBUG] handlePracticeModeMove: appendMove result=${appendResult}`);
+      if (!appendResult) {
+        console.log(`[DEBUG] handlePracticeModeMove: appendMove failed, returning`);
+        return;
+      }
+      
+      const appSettings = useAppSettings();
+      try {
+        playPieceBeat(appSettings.pieceVolume);
+      } catch (e) {
+        useErrorStore().add(e);
+      }
+      console.log(`[DEBUG] handlePracticeModeMove: calling goForward() with 500ms delay`);
+      setTimeout(() => {
+        this.recordManager.goForward();
+        console.log(`[DEBUG] handlePracticeModeMove: goForward() completed (delayed)`);
+      }, 500);
+    } else {
+      console.log(`[DEBUG] handlePracticeModeMove: incorrect move, showing then removing with delay`);
+      // 不正解手：手を表示してから0.5秒遅延で削除
+      const appendResult = this.recordManager.appendMove({ move });
+      console.log(`[DEBUG] handlePracticeModeMove: appendMove result=${appendResult}`);
+      if (appendResult) {
+        setTimeout(() => {
+          this.recordManager.removeCurrentMove();
+          console.log(`[DEBUG] handlePracticeModeMove: removeCurrentMove() completed (delayed)`);
+        }, 500);
+      }
+      // 必要に応じてエラー音やエフェクトを追加
+    }
+    console.log(`[DEBUG] handlePracticeModeMove: end`);
+  }
+
+  startPracticeMode(): void {
+    if (this.appState === AppState.NORMAL) {
+      console.log(`[DEBUG] startPracticeMode: starting practice mode`);
+      this._appState = AppState.PRACTICE_MODE;
+      console.log(`[DEBUG] startPracticeMode: practice mode started`);
+    }
+  }
+
+  endPracticeMode(): void {
+    if (this.appState === AppState.PRACTICE_MODE) {
+      this._appState = AppState.NORMAL;
     }
   }
 
@@ -1155,25 +1244,25 @@ class Store {
   }
 
   goForward(): void {
-    if (this.appState === AppState.NORMAL) {
+    if (this.appState === AppState.NORMAL || this.appState === AppState.PRACTICE_MODE) {
       this.recordManager.goForward();
     }
   }
 
   goBack(): void {
-    if (this.appState === AppState.NORMAL) {
+    if (this.appState === AppState.NORMAL || this.appState === AppState.PRACTICE_MODE) {
       this.recordManager.goBack();
     }
   }
 
   changePly(ply: number): void {
-    if (this.appState === AppState.NORMAL) {
+    if (this.appState === AppState.NORMAL || this.appState === AppState.PRACTICE_MODE) {
       this.recordManager.changePly(ply);
     }
   }
 
   changeBranch(index: number): void {
-    if (this.appState === AppState.NORMAL) {
+    if (this.appState === AppState.NORMAL || this.appState === AppState.PRACTICE_MODE) {
       this.recordManager.changeBranch(index);
     }
   }
@@ -1187,13 +1276,13 @@ class Store {
   }
 
   backToMainBranch(): void {
-    if (this.appState === AppState.NORMAL) {
+    if (this.appState === AppState.NORMAL || this.appState === AppState.PRACTICE_MODE) {
       this.recordManager.resetAllBranchSelection();
     }
   }
 
   removeCurrentMove(): void {
-    if (this.appState !== AppState.NORMAL) {
+    if (this.appState !== AppState.NORMAL && this.appState !== AppState.PRACTICE_MODE) {
       return;
     }
     if (this.recordManager.record.current.isLastMove) {
@@ -1209,7 +1298,7 @@ class Store {
   }
 
   jumpToBookmark(bookmark: string): boolean {
-    if (this.appState === AppState.NORMAL) {
+    if (this.appState === AppState.NORMAL || this.appState === AppState.PRACTICE_MODE) {
       return this.recordManager.jumpToBookmark(bookmark);
     }
     return false;
@@ -1516,21 +1605,28 @@ class Store {
   }
 
   get isMovableByUser() {
-    switch (this.appState) {
-      case AppState.NORMAL:
-        return true;
-      case AppState.GAME:
-        return (
-          (this.recordManager.record.position.color === Color.BLACK
-            ? this.gameManager.settings.black.uri
-            : this.gameManager.settings.white.uri) === uri.ES_HUMAN
-        );
-      case AppState.CSA_GAME:
-        return (
-          this.csaGameManager.isMyTurn && this.csaGameManager.settings.player.uri === uri.ES_HUMAN
-        );
-    }
-    return false;
+    const result = (() => {
+      switch (this.appState) {
+        case AppState.NORMAL:
+        case AppState.PRACTICE_MODE:
+          return true;
+        case AppState.GAME:
+          return (
+            (this.recordManager.record.position.color === Color.BLACK
+              ? this.gameManager.settings.black.uri
+              : this.gameManager.settings.white.uri) === uri.ES_HUMAN
+          );
+        case AppState.CSA_GAME:
+          return (
+            this.csaGameManager.isMyTurn && this.csaGameManager.settings.player.uri === uri.ES_HUMAN
+          );
+      }
+      return false;
+    })();
+    
+    // デバッグ用ログ
+    console.log(`[DEBUG] isMovableByUser: appState=${this.appState}, result=${result}`);
+    return result;
   }
 
   async onMainWindowClose(): Promise<void> {

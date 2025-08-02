@@ -14,6 +14,7 @@
         :show-top-control="showTopControl"
         :show-bottom-control="showBottomControl"
         :show-branches="showBranches"
+        :hide-move-list="store.appState === AppState.PRACTICE_MODE"
         :shortcut-keys="getRecordShortcutKeys(appSettings.recordShortcutKeys)"
         @go-begin="store.changePly(0)"
         @go-back="store.goBack()"
@@ -94,7 +95,9 @@ onBeforeUnmount(() => {
   uninstallHotKeyForMainWindow(root.value);
 });
 
-const isRecordOperational = computed(() => store.appState === AppState.NORMAL);
+const isRecordOperational = computed(
+  () => store.appState === AppState.NORMAL || store.appState === AppState.PRACTICE_MODE,
+);
 
 const onToggleElapsedTime = (enabled: boolean) => {
   appSettings.updateAppSettings({

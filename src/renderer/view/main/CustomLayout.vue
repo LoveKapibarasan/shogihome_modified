@@ -80,6 +80,8 @@ import EngineAnalytics from "@/renderer/view/tab/EngineAnalytics.vue";
 import EvaluationChart from "@/renderer/view/tab/EvaluationChart.vue";
 import ControlPane, { ControlGroup } from "./ControlPane.vue";
 import { useAppSettings } from "@/renderer/store/settings";
+import { useStore } from "@/renderer/store";
+import { AppState } from "@/common/control/state.js";
 import RecordComment from "@/renderer/view/tab/RecordComment.vue";
 import RecordInfo from "@/renderer/view/tab/RecordInfo.vue";
 import BookPanel from "./BookPanel.vue";
@@ -87,6 +89,7 @@ import BookPanel from "./BookPanel.vue";
 const props = defineProps<{ profile: LayoutProfile }>();
 
 const appSettings = useAppSettings();
+const store = useStore();
 
 function componentStyle(c: UIComponent) {
   switch (c.type) {

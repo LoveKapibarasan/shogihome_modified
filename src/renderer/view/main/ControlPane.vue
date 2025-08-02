@@ -139,6 +139,24 @@
           <Icon :icon="IconType.EDIT" />
           <span :class="{ tooltip: compact }">{{ t.setupPosition }}</span>
         </button>
+        <!-- 練習モード -->
+        <button
+          v-show="store.appState === AppState.NORMAL"
+          class="control-item"
+          @click="onStartPracticeMode"
+        >
+          <Icon :icon="IconType.PLAY" />
+          <span :class="{ tooltip: compact }">練習モード</span>
+        </button>
+        <!-- 練習モード終了 -->
+        <button
+          v-show="store.appState === AppState.PRACTICE_MODE"
+          class="control-item close"
+          @click="onEndPracticeMode"
+        >
+          <Icon :icon="IconType.STOP" />
+          <span :class="{ tooltip: compact }">練習モード終了</span>
+        </button>
         <!-- 盤面編集終了 -->
         <button
           v-show="store.appState === AppState.POSITION_EDITING"
@@ -379,6 +397,14 @@ const onFileAction = () => {
 
 const onRemoveCurrentMove = () => {
   store.removeCurrentMove();
+};
+
+const onStartPracticeMode = () => {
+  store.startPracticeMode();
+};
+
+const onEndPracticeMode = () => {
+  store.endPracticeMode();
 };
 </script>
 

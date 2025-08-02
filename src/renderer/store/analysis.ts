@@ -193,9 +193,27 @@ export class AnalysisManager {
   }
 
   private onResult(): void {
-    if (!this.searchInfo || !this.lastSearchInfo) {
+    if (!this.searchInfo) {
       return;
     }
+    
+    // 0手目の場合は特別処理
+    if (!this.lastSearchInfo) {
+      // 0手目：現在の探索結果をそのまま0手目にコメント書き込み
+      const appSettings = useAppSettings();
+      this.recordManager.appendSearchComment(
+        SearchInfoSenderType.RESEARCHER,
+        appSettings.searchCommentFormat,
+        this.searchInfo,
+        this.settings.commentBehavior,
+        {
+          header: "",
+          engineName: this.settings.usi?.name,
+        },
+      );
+      return;
+    }
+    
     const searchInfo1 = this.settings.descending ? this.searchInfo : this.lastSearchInfo;
     const searchInfo2 = this.settings.descending ? this.lastSearchInfo : this.searchInfo;
     // 逆順の場合は 1 手後の局面に結果を書き込む
@@ -208,15 +226,15 @@ export class AnalysisManager {
     const sign = color === Color.BLACK ? 1 : -1;
     // 手番側から見た評価値
     const negaScore = searchInfo2.score !== undefined ? searchInfo2.score * sign : undefined;
-    // 1 手前の局面からの評価値の変動
+    // 1 手前の局面からの評価値の変動（0手目の場合はnull）
     const scoreDelta =
-      searchInfo2.score !== undefined && searchInfo1.score !== undefined
+      searchInfo2.score !== undefined && searchInfo1?.score !== undefined
         ? (searchInfo2.score - searchInfo1.score) * sign
         : undefined;
     // エンジンが示す最善手と一致しているかどうか
     const actualMove = this.recordManager.record.current.move;
     const isBestMove =
-      actualMove instanceof Move && searchInfo1.pv ? actualMove.equals(searchInfo1.pv[0]) : false;
+      actualMove instanceof Move && searchInfo1?.pv ? actualMove.equals(searchInfo1.pv[0]) : false;
     // コメントの先頭に付与するヘッダーを作成する。
     const appSettings = useAppSettings();
     let header = "";

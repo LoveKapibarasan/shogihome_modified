@@ -11,7 +11,7 @@
           v-if="showRecordViewOnBottom"
           :style="{ height: `${controlPaneHeight}px` }"
         />
-        <RecordPane
+                <RecordPane
           v-if="showRecordViewOnBottom"
           v-show="bottomUIType === BottomUIType.RECORD"
           :style="{
@@ -24,7 +24,7 @@
           :show-comment="true"
         />
         <RecordComment
-          v-if="showRecordViewOnBottom"
+          v-if="showRecordViewOnBottom && store.appState !== AppState.PRACTICE_MODE"
           v-show="bottomUIType === BottomUIType.COMMENT"
           :style="{
             width: `${windowSize.width}px`,
@@ -107,6 +107,8 @@ import HorizontalSelector from "@/renderer/view/primitive/HorizontalSelector.vue
 import { t } from "@/common/i18n";
 import RecordInfo from "@/renderer/view/tab/RecordInfo.vue";
 import { isIOS } from "@/renderer/helpers/env";
+import { useStore } from "@/renderer/store";
+import { AppState } from "@/common/control/state.js";
 
 const lazyUpdateDelay = 80;
 const selectorHeight = 30;
@@ -118,6 +120,7 @@ const minRecordViewHeight = 130;
 const safeAreaMarginY = isIOS() ? 21 : 10;
 
 const windowSize = reactive(new RectSize(window.innerWidth, window.innerHeight - safeAreaMarginY));
+const store = useStore();
 const bottomUIType = ref(BottomUIType.RECORD);
 const sideUIType = ref(SideUIType.RECORD);
 

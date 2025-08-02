@@ -226,8 +226,26 @@ const onStart = async () => {
         // batch analysis dialog is shown
         // @ts-expect-error - 内部プロパティへの一時的なアクセス
         store._appState = AppState.BATCH_ANALYSIS_DIALOG;
-        // 上書き保存
-        store.saveRecord({ overwrite: true });
+        
+        // 現在のファイルパスに上書き保存
+        if (store.recordFilePath) {
+          // 一時的にNORMALステートにして保存操作を許可
+          // @ts-expect-error - 内部プロパティへの一時的なアクセス
+          const originalState = store._appState;
+          // @ts-expect-error - 内部プロパティへの一時的なアクセス
+          store._appState = AppState.NORMAL;
+          
+          try {
+            store.saveRecord({ overwrite: true });
+            // 状態を戻す
+            // @ts-expect-error - 内部プロパティへの一時的なアクセス
+            store._appState = originalState;
+          } catch (error) {
+            // @ts-expect-error - 内部プロパティへの一時的なアクセス
+            store._appState = originalState;
+            throw error;
+          }
+        }
 
         processedCount++;
       } catch (fileError) {

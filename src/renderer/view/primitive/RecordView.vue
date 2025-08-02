@@ -14,7 +14,7 @@
         <Icon :icon="IconType.LAST" />
       </button>
     </div>
-    <div class="move-list-area">
+    <div v-if="!hideMoveList" class="move-list-area">
       <!-- NOTE: 背景だけを透過させるために背景専用の要素を作る。 -->
       <div class="move-list-background" :style="{ opacity }"></div>
       <div ref="moveList" class="move-list">
@@ -164,6 +164,11 @@ const props = defineProps({
     type: Boolean,
     required: false,
     default: true,
+  },
+  hideMoveList: {
+    type: Boolean,
+    required: false,
+    default: false,
   },
   shortcutKeys: {
     type: Object as PropType<RecordShortcutKeys>,

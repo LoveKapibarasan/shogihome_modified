@@ -122,7 +122,9 @@ const engineURI = ref("");
 // 連続解析用の追加データ
 const inputFolder = ref("");
 
-busyState.retain();
+console.log("[BatchAnalysisDialog] Initial busyState.retain() - before isBusy:", busyState.isBusy);
+busyState.retain(); //counter = 1
+console.log("[BatchAnalysisDialog] Initial busyState.retain() - after isBusy:", busyState.isBusy);
 onMounted(async () => {
   try {
     settings.value = await api.loadAnalysisSettings();
@@ -132,7 +134,9 @@ onMounted(async () => {
     useErrorStore().add(e);
     store.destroyModalDialog();
   } finally {
-    busyState.release();
+    console.log("[BatchAnalysisDialog] onMounted busyState.release() - before isBusy:", busyState.isBusy);
+    busyState.release(); //counter = 0
+    console.log("[BatchAnalysisDialog] onMounted busyState.release() - after isBusy:", busyState.isBusy);
   }
 });
 
@@ -185,9 +189,9 @@ const onStart = async () => {
         store.openRecord(filePath);
 
         // 状態をANALYSIS_DIALOG
+        // Analysis dialog is shown
         // @ts-expect-error - 内部プロパティへの一時的なアクセス
         store._appState = AppState.ANALYSIS_DIALOG;
-
 
         if (!engineURI.value || !engines.value.hasEngine(engineURI.value)) {
           useErrorStore().add(t.engineNotSelected);
@@ -204,15 +208,22 @@ const onStart = async () => {
           return;
         }
         // TODO: Understand busyState
+        console.log("[BatchAnalysisDialog] Before busyState.release() - isBusy:", busyState.isBusy);
         busyState.release();
-        console.log(busyState.isBusy);
+        console.log("[BatchAnalysisDialog] After busyState.release() - isBusy:", busyState.isBusy);
+        console.log("[BatchAnalysisDialog] Before store.startAnalysis() - isBusy:", busyState.isBusy);
         store.startAnalysis(newSettings);
+        console.log("[BatchAnalysisDialog] After store.startAnalysis() - isBusy:", busyState.isBusy);
 
         // 解析完了を待つ
+        console.log("[BatchAnalysisDialog] Before waitForAnalysisComplete() - isBusy:", busyState.isBusy);
         await waitForAnalysisComplete();
-
+        console.log("[BatchAnalysisDialog] After waitForAnalysisComplete() - isBusy:", busyState.isBusy);
+        console.log("[BatchAnalysisDialog] Before busyState.retain() - isBusy:", busyState.isBusy);
         busyState.retain();
+        console.log("[BatchAnalysisDialog] After busyState.retain() - isBusy:", busyState.isBusy);
         // 解析完了後、状態をBATCH_ANALYSIS_DIALOGに戻す
+        // batch analysis dialog is shown
         // @ts-expect-error - 内部プロパティへの一時的なアクセス
         store._appState = AppState.BATCH_ANALYSIS_DIALOG;
         // 上書き保存

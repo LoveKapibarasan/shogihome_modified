@@ -246,9 +246,6 @@ export const webAPI: Bridge = {
   async loadSFENFile(): Promise<string[]> {
     throw new Error(t.thisFeatureNotAvailableOnWebApp);
   },
-  async listFiles(): Promise<string> {
-    throw new Error(t.thisFeatureNotAvailableOnWebApp);
-  },
   onOpenRecord(): void {
     // Do Nothing
   },
@@ -459,6 +456,9 @@ export const webAPI: Bridge = {
     throw new Error(t.thisFeatureNotAvailableOnWebApp);
   },
   async showSelectDirectoryDialog(): Promise<string> {
+    throw new Error(t.thisFeatureNotAvailableOnWebApp);
+  },
+  async listFiles(): Promise<string[]> {
     throw new Error(t.thisFeatureNotAvailableOnWebApp);
   },
   openExplorer() {

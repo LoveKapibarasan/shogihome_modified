@@ -7,13 +7,6 @@ export const en: Texts = {
   open: "Open",
   openNewInstance: "Open New ShogiHome Instance",
   saveOverwrite: "Overwrite",
-  commentsAndBookmarks: "Comments & Bookmarks",
-  branches: "Branches",
-  bookmark: "Bookmark",
-  bookmarkList: "Bookmark List",
-  useBookmarkAsHeader: "Use bookmark as header",
-  bookmarkTour: "Bookmark Tour",
-  moveComments: "Move Comments",
   newRecord: "New Record",
   openRecord: "Open Record",
   saveRecord: "Save Record",
@@ -278,6 +271,13 @@ export const en: Texts = {
   deleteMove: "Delete Move",
   recordProperties: "Record Properties",
   comments: "Comments",
+  commentsAndBookmarks: "Comments & Bookmarks",
+  branches: "Branches",
+  bookmark: "Bookmark",
+  bookmarkList: "Bookmarks",
+  useBookmarkAsHeader: "Use Bookmark as Header",
+  bookmarkTour: "Bookmark Tour",
+  moveComments: "Move Comments",
   searchLog: "Search Log",
   pv: "PV",
   mateShort: "M",
@@ -735,19 +735,34 @@ export const en: Texts = {
   areYouSureWantToDeleteFollowingMove: (n) =>
     `Are you sure you want to delete th ${n}th move and the following moves?`,
   failedToOpenDirectory: (path: string) => `Failed to open directory of the file: ${path}`,
-  unexpectedEventSenderPleaseReport: (sender) =>
-    `Unexpected event sender. Please report this error message to developer. [${sender}]`,
-  unexpectedHTTPMethodPleaseReport: (method) =>
-    `Unexpected HTTP method. Please report this error message to developer. [${method}]`,
-  unexpectedRequestURLPleaseReport: (url) =>
-    `Unexpected request URL. Please report this error message to developer. [${url}]`,
-  noResponseFromEnginePleaseExtendTimeout: (seconds) =>
-    `No response from the engine for ${seconds} seconds. Please extend the timeout in the app settings if your engine is slow.`,
-  stableVersionReleased: (version: string) => `Stable version ${version} released!`,
-  latestVersionReleased: (version: string) => `Latest version ${version} released!`,
-  doYouReallyWantToRemoveBookMove: (name: string) =>
-    `Do you really want to remove the book move "${name}"?`,
-  unexpectedRecordFileExtension: (path: string) => `Unexpected record file extension: [${path}]`,
-  fileNotFound: (path: string) => `File not found. [${path}]`,
-  directoryNotFound: (path: string) => `Directory not found. [${path}]`,
+  unexpectedEventSenderPleaseReport(sender) {
+    return `Unexpected event sender. Please report this error message to developer. [${sender}]`;
+  },
+  unexpectedHTTPMethodPleaseReport(method) {
+    return `Unexpected HTTP method. Please report this error message to developer. [${method}]`;
+  },
+  unexpectedRequestURLPleaseReport(url) {
+    return `Unexpected request URL. Please report this error message to developer. [${url}]`;
+  },
+  noResponseFromEnginePleaseExtendTimeout(seconds) {
+    return `No response from the engine for ${seconds} seconds. Please extend the timeout in the app settings if your engine is slow.`;
+  },
+  stableVersionReleased(version: string) {
+    return `Stable version ${version} released!`;
+  },
+  latestVersionReleased(version: string) {
+    return `Latest version ${version} released!`;
+  },
+  doYouReallyWantToRemoveBookMove(name: string) {
+    return `Do you really want to remove the book move "${name}"?`;
+  },
+  unexpectedRecordFileExtension(path: string) {
+    return `Unexpected record file extension: [${path}]`;
+  },
+  fileNotFound(path: string) {
+    return `File not found. [${path}]`;
+  },
+  directoryNotFound(path: string) {
+    return `Directory not found. [${path}]`;
+  },
 };

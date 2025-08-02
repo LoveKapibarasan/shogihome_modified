@@ -69,7 +69,6 @@ export interface API {
   convertRecordFiles(settings: BatchConversionSettings): Promise<BatchConversionResult>;
   showSelectSFENDialog(lastPath: string): Promise<string>;
   loadSFENFile(path: string): Promise<string[]>;
-  listFiles(dir: string, maxDepth: number): Promise<string[]>;
 
   // Book
   showOpenBookDialog(): Promise<string>;
@@ -136,6 +135,7 @@ export interface API {
   // MISC
   showSelectFileDialog(): Promise<string>;
   showSelectDirectoryDialog(defaultPath?: string): Promise<string>;
+  listFiles(dir: string, maxDepth: number): Promise<string[]>;
   openExplorer(path: string): void;
   openWebBrowser(url: string): void;
   isEncryptionAvailable(): Promise<boolean>;
@@ -228,12 +228,6 @@ const api: API = {
   async convertRecordFiles(settings: BatchConversionSettings): Promise<BatchConversionResult> {
     return JSON.parse(await bridge.convertRecordFiles(JSON.stringify(settings)));
   },
-  async loadSFENFile(path: string): Promise<string[]> {
-    return await bridge.loadSFENFile(path);
-  },
-  async listFiles(dir: string, maxDepth: number): Promise<string[]> {
-    return JSON.parse(await bridge.listFiles(dir, maxDepth));
-  },
 
   // Book
   openBook(path: string, options: BookLoadingOptions): Promise<BookLoadingMode> {
@@ -302,6 +296,9 @@ const api: API = {
   // MISC
   async getVersionStatus(): Promise<VersionStatus> {
     return JSON.parse(await bridge.getVersionStatus());
+  },
+  async listFiles(dir: string, maxDepth: number): Promise<string[]> {
+    return await bridge.listFiles(dir, maxDepth);
   },
 };
 

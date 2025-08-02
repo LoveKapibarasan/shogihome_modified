@@ -56,6 +56,7 @@
     />
     <BookmarkTourDialog
       v-if="store.isBookmarkTour"
+      :position="store.record.position"
       @close="store.exitBookmarkTour()"
       @next="store.nextBookmarkInTour()"
       @prev="store.previousBookmarkInTour()"

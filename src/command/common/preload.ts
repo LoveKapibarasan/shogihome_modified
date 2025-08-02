@@ -157,9 +157,6 @@ const bridge: Bridge = {
   async loadSFENFile(): Promise<string[]> {
     throw new Error("This feature is not available on command line tool");
   },
-  async listFiles(): Promise<string> {
-    throw new Error("This feature is not available on command line tool");
-  },
   onOpenRecord(): void {
     // Do Nothing
   },
@@ -386,6 +383,9 @@ const bridge: Bridge = {
     throw new Error("This feature is not available on command line tool");
   },
   getPathForFile() {
+    throw new Error("This feature is not available on command line tool");
+  },
+  async listFiles(): Promise<string[]> {
     throw new Error("This feature is not available on command line tool");
   },
   onProgress(): void {

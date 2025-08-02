@@ -29,82 +29,84 @@
               <Icon :icon="IconType.CLOSE" />
             </button>
           </div>
-
           <div class="row control-row">
-            <button
-              class="control-item"
-              :disabled="currentIndex <= 0"
-              :data-hotkey="shortcutKeys.Back"
-              @click="previousBookmark"
-            >
+            <button class="control-item" :data-hotkey="shortcutKeys.Begin" @click="goBegin">
+              <Icon :icon="IconType.FIRST" />
+            </button>
+            <button class="control-item" :data-hotkey="shortcutKeys.End" @click="goEnd">
+              <Icon :icon="IconType.LAST" />
+            </button>
+          </div>
+          <div class="row control-row">
+            <button class="control-item" :data-hotkey="shortcutKeys.Back" @click="goBack">
               <Icon :icon="IconType.BACK" />
             </button>
-            <button
-              class="control-item"
-              :disabled="currentIndex >= bookmarks.length - 1"
-              :data-hotkey="shortcutKeys.Forward"
-              @click="nextBookmark"
-            >
+            <button class="control-item" :data-hotkey="shortcutKeys.Forward" @click="goForward">
               <Icon :icon="IconType.NEXT" />
             </button>
           </div>
-          <div class="row control-row bookmark-info-row">
-            <div class="bookmark-info">
-              {{ currentBookmarkInfo }}
-            </div>
+          <div class="row control-row">
+            <button class="control-item" :disabled="currentIndex <= 0" @click="previousBookmark">
+              <Icon :icon="IconType.BACK" />
+            </button>
+            <button class="control-item" :disabled="currentIndex >= bookmarks.length - 1" @click="nextBookmark">
+              <Icon :icon="IconType.NEXT" />
+            </button>
           </div>
         </div>
       </template>
       <template #left-control>
         <div class="full column reverse">
-          <button class="control-item-wide" @click="goBegin">
-            <Icon :icon="IconType.FIRST" />
+          <button class="control-item-wide" :disabled="!enableInsertion" @click="insertToRecord">
+            <Icon :icon="IconType.TREE" />
+            <span>{{ t.insertToRecord }}</span>
           </button>
-          <button class="control-item-wide" @click="goBack">
-            <Icon :icon="IconType.BACK" />
-            <span>{{ t.back }}</span>
-          </button>
-          <button class="control-item-wide" @click="goForward">
-            <Icon :icon="IconType.NEXT" />
+          <button class="control-item-wide" :disabled="!enableInsertion" @click="insertToComment">
+            <Icon :icon="IconType.NOTE" />
+            <span>{{ t.insertToComment }}</span>
           </button>
         </div>
       </template>
     </BoardView>
-    <div class="informations">
+    <div v-if="correctMovesCount >= CORRECT_MOVES_NEEDED" class="informations">
       <div class="information">
-        {{ tourInfo }}
+        {{ info }}
+      </div>
+      <div v-if="extractedEvaluation !== null" class="information evaluation-display">
+        評価値: <span :class="evaluationClass">{{ extractedEvaluation }}</span>
+      </div>
+      <div class="information quiz-progress">
+        トレーニング完了! ({{ correctMovesCount }}/{{ CORRECT_MOVES_NEEDED }})
       </div>
       <div class="information">
-        <div class="bookmark-details">
-          <div class="bookmark-name">{{ currentBookmarkName }}</div>
-          <div v-if="showAnswer && currentComment" class="bookmark-comment">
-            {{ currentComment }}
-          </div>
-          <div v-if="!showAnswer" class="quiz-progress">
-            正解数: {{ correctMovesCount }} / {{ CORRECT_MOVES_NEEDED }}
-          </div>
-          <div v-if="debugInfo" class="debug-info">Debug: {{ debugInfo }}</div>
-        </div>
+        <span v-for="(move, index) in displayPV" :key="index">
+          <span class="move-element" :class="{ selected: move.selected }"
+            >&nbsp;{{ move.text }}&nbsp;</span
+          >
+        </span>
       </div>
     </div>
   </DialogFrame>
 </template>
 
 <script setup lang="ts">
-import { Move, Record } from "tsshogi";
-import { onMounted, ref, reactive, computed, onBeforeUnmount, watch } from "vue";
+import { Color, Move, ImmutablePosition, Record as TSRecord } from "tsshogi";
+import { onMounted, ref, computed, onBeforeUnmount, watch, PropType, reactive } from "vue";
 import BoardView from "@/renderer/view/primitive/BoardView.vue";
 import Icon from "@/renderer/view/primitive/Icon.vue";
 import { RectSize } from "@/common/assets/geometry.js";
 import { IconType } from "@/renderer/assets/icons";
 import { useAppSettings } from "@/renderer/store/settings";
-import { getPieceImageURLTemplate } from "@/common/settings/app";
+import { EvaluationViewFrom, getPieceImageURLTemplate } from "@/common/settings/app";
 import { t } from "@/common/i18n";
 import { useStore } from "@/renderer/store";
+import { SearchInfoSenderType, RecordCustomData } from "@/renderer/store/record";
+import { CommentBehavior } from "@/common/settings/comment";
+import { AppState } from "@/common/control/state";
+import { useMessageStore } from "@/renderer/store/message";
 import DialogFrame from "./DialogFrame.vue";
 import { getRecordShortcutKeys } from "@/renderer/view/primitive/board/shortcut";
 import { playPieceBeat } from "@/renderer/devices/audio.js";
-import { RecordManager } from "@/renderer/store/record.js";
 
 const emit = defineEmits<{
   close: [];
@@ -112,22 +114,60 @@ const emit = defineEmits<{
   prev: [];
 }>();
 
+const props = defineProps({
+  position: {
+    type: Object as PropType<ImmutablePosition>,
+    required: true,
+  },
+  name: {
+    type: String,
+    required: false,
+    default: undefined,
+  },
+  multiPv: {
+    type: Number,
+    required: false,
+    default: undefined,
+  },
+  depth: {
+    type: Number,
+    required: false,
+    default: undefined,
+  },
+  selectiveDepth: {
+    type: Number,
+    required: false,
+    default: undefined,
+  },
+  score: {
+    type: Number,
+    required: false,
+    default: undefined,
+  },
+  mate: {
+    type: Number,
+    required: false,
+    default: undefined,
+  },
+  lowerBound: {
+    type: Boolean,
+    required: false,
+    default: false,
+  },
+  upperBound: {
+    type: Boolean,
+    required: false,
+    default: false,
+  },
+});
 const store = useStore();
+const messageStore = useMessageStore();
 const appSettings = useAppSettings();
 const maxSize = reactive(new RectSize(0, 0));
+const record = reactive(new TSRecord());
 const flip = ref(appSettings.boardFlipping);
-const record = reactive(new Record());
-
-// Quiz/training mode state
-const CORRECT_MOVES_NEEDED = 3;
-const correctMovesCount = ref(0);
-const showAnswer = ref(false);
-const originalPVMoves = ref<Move[]>([]); // Store the original PV moves from analysis
-const debugInfo = ref(""); // Debug information for checking PV validation
-
-const bookmarkTourData = computed(() => store.bookmarkTourData);
-const bookmarks = computed(() => bookmarkTourData.value?.bookmarks || []);
-const currentIndex = computed(() => bookmarkTourData.value?.currentIndex || 0);
+const currentIndex = ref(0);
+const bookmarks = store.record.bookmarks;
 
 const updateSize = () => {
   maxSize.width = window.innerWidth * 0.8;
@@ -135,172 +175,38 @@ const updateSize = () => {
 };
 
 const updateRecord = () => {
-  // Get the current bookmark name
-  const currentBookmark = currentBookmarkName.value;
-  if (!currentBookmark) {
-    record.clear(store.record.position);
-    return;
-  }
-
   // Find the bookmarked move
-  const bookmarkedMove = store.record.moves.find((move) => move.bookmark === currentBookmark);
-  if (!bookmarkedMove) {
-    record.clear(store.record.position);
-    return;
-  }
+  const currentBookmark = bookmarks[currentIndex.value];
 
-  console.log("=== BOOKMARK POSITION DEBUG ===");
-  console.log("Current bookmark:", currentBookmark);
-  console.log("Bookmarked move ply:", bookmarkedMove.ply);
-  console.log("Total moves in record:", store.record.moves.length);
-
-  // Get the position AT the bookmark (like PVPreviewDialog's position prop)
-  const tempRecord = new Record();
-  tempRecord.clear(store.record.initialPosition);
-  console.log("Starting from initial position SFEN:", store.record.initialPosition.sfen);
   
-  // Replay moves up to the bookmarked move to get the position
-  let movesAppended = 0;
-  for (const moveRecord of store.record.moves) {
-    console.log(`Processing move ply ${moveRecord.ply}, bookmark: ${moveRecord.bookmark || 'none'}`);
+  // @ts-expect-error - 内部プロパティへの一時的なアクセス
+  store._appState = AppState.NORMAL;
+  // Jump to the bookmark position to get the correct context
+  store.jumpToBookmark(currentBookmark);
+
+  // @ts-expect-error - 内部プロパティへの一時的なアクセス
+  store._appState = AppState.BOOKMARK_TOUR;
+  
+  // Get PVs from the current position's comment BEFORE clearing the record
+  const currentPVs = store.inCommentPVs;
+  const currentPV = currentPVs.length > 0 ? currentPVs[0] : []; 
+
+  
+  // Reset training progress and set CORRECT_MOVES_NEEDED based on PV length
+  correctMovesCount.value = 0;
+  CORRECT_MOVES_NEEDED = currentPV.length < 3 ? currentPV.length : 3;
+  
+  // Extract evaluation from customData (same way as existing features)
+  const customData = store.record.current.customData as RecordCustomData;
+  extractedEvaluation.value = customData?.researchInfo?.score || null;
+  
+  // Clear record and start from the bookmark position
+  record.clear(store.record.position); 
     
-    // Check for bookmark FIRST, before skipping ply 0
-    if (moveRecord.bookmark === currentBookmark) {
-      console.log("Found bookmark! Breaking loop.");
-      break;
-    }
-    
-    if (moveRecord.ply === 0) {
-      console.log("Skipping ply 0 move");
-      continue;
-    }
-    
-    if (moveRecord.move && moveRecord.move instanceof Move) {
-      console.log(`Appending move ${movesAppended + 1}: ${moveRecord.move.usi}`);
-      tempRecord.append(moveRecord.move, { ignoreValidation: true });
-      movesAppended++;
-    }
-  }
-  
-  // IMPORTANT: For bookmarks on actual moves (not ply 0), we need the position BEFORE the bookmarked move
-  // The PV analysis was done BEFORE making the bookmarked move, so we use that position
-  console.log("Total moves appended to tempRecord:", movesAppended);
-  console.log("Final tempRecord position SFEN:", tempRecord.position.sfen);
-  console.log("Turn at position:", tempRecord.position.color === 0 ? "Black/先手" : "White/後手");
-  
-  // Check if we have a bookmarked move and if we need to play it to get the correct PV position
-  if (bookmarkedMove.ply > 0 && bookmarkedMove.move && bookmarkedMove.move instanceof Move) {
-    console.log("Playing bookmarked move to get PV position:", bookmarkedMove.move.usi);
-    tempRecord.append(bookmarkedMove.move, { ignoreValidation: true });
-    console.log("Position after bookmarked move SFEN:", tempRecord.position.sfen);
-    console.log("Turn after bookmarked move:", tempRecord.position.color === 0 ? "Black/先手" : "White/後手");
-  }
-  
-  console.log("===========================");
-
-  // NOW mimic PVPreviewDialog: Start with position + add PV moves from analysis comments
-  // Clear record with the bookmark position (like PVPreviewDialog does with props.position)
-  record.clear(tempRecord.position);
-
-  // Get PV moves from analysis comment at the bookmarked position
-  // Create a temporary RecordManager to access the inCommentPVs feature
-  const tempMutableRecord = new Record();
-  tempMutableRecord.clear(tempRecord.position);
-  const tempRecordManager = new RecordManager(tempMutableRecord);
-
-  // Set the comment to the bookmarked move's comment to extract PV
-  if (bookmarkedMove.comment) {
-    tempMutableRecord.current.comment = bookmarkedMove.comment;
-    console.log("=== PV Extraction Debug ===");
-    console.log("Bookmark comment:", bookmarkedMove.comment);
-    console.log("Position SFEN for PV extraction:", tempRecord.position.sfen);
-    console.log("Bookmarked move customData:", bookmarkedMove.customData);
-  }
-
-  // Extract PV moves from the comment (this is the actual analysis PV, not game moves)
-  const pvArrays = tempRecordManager.inCommentPVs;
-  console.log("PV arrays found:", pvArrays.length);
-  
-  let pvMoves: Move[] = [];
-  
-  if (pvArrays.length > 0) {
-    console.log(
-      "First PV array:",
-      pvArrays[0].map((m) => m.usi),
-    );
-    pvMoves = pvArrays[0];
-  } else if (bookmarkedMove.comment) {
-    // Try to extract PV from Japanese notation in comment
-    console.log("Attempting to extract PV from Japanese notation...");
-    const pvMatch = bookmarkedMove.comment.match(/#読み筋=(.+)/);
-    if (pvMatch) {
-      const pvString = pvMatch[1];
-      console.log("Found PV string:", pvString);
-      
-      // Parse Japanese notation PV moves
-      try {
-        const tempParseRecord = new Record();
-        tempParseRecord.clear(tempRecord.position);
-        
-        // Split by ▲ and △ symbols and parse each move
-        const moveStrings = pvString.split(/[▲△]/).filter(s => s.trim());
-        console.log("Move strings:", moveStrings);
-        
-        for (let i = 0; i < Math.min(moveStrings.length, 10); i++) { // Limit to first 10 moves
-          const moveStr = moveStrings[i].trim();
-          if (moveStr) {
-            try {
-              // Try to parse the Japanese move notation
-              const move = tempParseRecord.position.createMoveByNotation(moveStr);
-              if (move) {
-                pvMoves.push(move);
-                tempParseRecord.append(move, { ignoreValidation: true });
-                console.log(`Parsed move ${i + 1}: ${moveStr} -> ${move.usi}`);
-              }
-            } catch (e) {
-              console.log(`Failed to parse move: ${moveStr}`, e);
-              break; // Stop on first parsing error
-            }
-          }
-        }
-        
-        console.log("Extracted PV moves from Japanese notation:", pvMoves.map(m => m.usi));
-      } catch (e) {
-        console.log("Failed to parse Japanese notation PV:", e);
-      }
-    }
-  }
-  
-  // Verify first PV move is valid for current position
-  if (pvMoves.length > 0) {
-    const firstPVMove = pvMoves[0];
-    const isValid = tempRecord.position.isValidMove(firstPVMove);
-    console.log("First PV move valid for position:", isValid, "Move:", firstPVMove.usi);
-  }
-
-  // Limit PV moves for training
-  const MAX_TRAINING_MOVES = 6;
-  const limitedPVMoves = pvMoves.slice(0, MAX_TRAINING_MOVES);
-  console.log(
-    "Final PV moves for training:",
-    limitedPVMoves.map((m) => m.usi),
-  );
-  console.log("======================");
-
-  // Add PV moves to record (like PVPreviewDialog does with props.pv)
-  for (const move of limitedPVMoves) {
+  for (const move of currentPV) {
     record.append(move, { ignoreValidation: true });
   }
-
-  // Store the original PV sequence for quiz validation
-  originalPVMoves.value = [...limitedPVMoves];
-
-  // Start at 0th move
   record.goto(0);
-  
-  // Reset quiz state when changing bookmarks
-  correctMovesCount.value = 0;
-  showAnswer.value = false;
 };
 
 onMounted(() => {
@@ -326,79 +232,68 @@ const onClose = () => {
 };
 
 const nextBookmark = () => {
+  if (currentIndex.value < bookmarks.length - 1) {
+    currentIndex.value++;
+  }
   emit("next");
 };
 
 const previousBookmark = () => {
+  if (currentIndex.value > 0) {
+    currentIndex.value--;
+  }
   emit("prev");
 };
 
-const doFlip = () => {
-  flip.value = !flip.value;
+const correctMovesCount = ref(0);
+let CORRECT_MOVES_NEEDED = 3;
+const extractedEvaluation = ref<number | null>(null);
+
+// Extract evaluation from comment using existing store function  
+const getEvaluationFromComment = (comment: string): number | null => {
+  const lines = comment.split("\n");
+  for (const line of lines) {
+    const match = line.match(/^#評価値=([+-]?[.0-9]+)/);
+    if (match) {
+      return Number(match[1]);
+    }
+  }
+  return null;
 };
 
 const onMove = (move: Move) => {
+  record.append(move);
   playPieceBeat(appSettings.pieceVolume);
+
+  // Use the PV from the current local record (no need to jump to bookmark again)
+  const expectedMove = record.moves[record.current.ply]?.move;
+
   // Quiz/training mode behavior
-  if (record.position.isValidMove(move)) {
-    // Check if this move matches the EXACT next move in the original PV sequence
-    const currentPly = record.current.ply;
-
-    // Use the original PV moves array, not the current record moves which might contain wrong moves
-    const expectedMove = originalPVMoves.value[currentPly];
-
-    // Console logging for debugging PV validation
-    console.log("=== onMove Debug ===");
-    console.log("Current ply:", currentPly);
-    console.log("User move USI:", move.usi);
-    console.log("Expected move USI:", expectedMove?.usi || "none");
-    console.log("Original PV length:", originalPVMoves.value.length);
-    console.log("Original PV USIs:", originalPVMoves.value.map((m) => m.usi));
-    console.log("Record moves length:", record.moves.length);
-    console.log("==================");
-
     // STRICT CHECK: Only accept if it's exactly the next move in our original training PV
-    if (expectedMove && expectedMove.equals(move)) {
-      console.log("✅ Correct move!");
-      // Correct move! Advance through the PV sequence
-      record.goForward(); // Play the user's correct move (step 1)
-      correctMovesCount.value++;
-
-      // Auto-play opponent's move immediately if it exists in original PV
-      const nextOpponentMove = originalPVMoves.value[record.current.ply];
-      if (nextOpponentMove) {
-        console.log("🤖 Auto-playing opponent move:", nextOpponentMove.usi);
-        setTimeout(() => {
-          // Play piece sound for opponent's auto-move
-          record.goForward(); // Play opponent's move automatically (step 2)
-          playPieceBeat(appSettings.pieceVolume);
-        }, 500); // 0.5 second delay for opponent auto-play
-      }
-
-      // Check if user has made enough correct moves to show answer
-      if (correctMovesCount.value >= CORRECT_MOVES_NEEDED) {
-        showAnswer.value = true;
-      }
-    } else {
-      console.log("❌ Wrong move!");
-      // For incorrect moves, temporarily show the move then delete it properly
-      // First append the wrong move so user can see it
-      record.append(move);
-
-      // Then properly delete the wrong move (not just navigate back)
-      setTimeout(() => {
-        // Use removeCurrentMove to actually delete the wrong move from the record
-        record.removeCurrentMove();
-        console.log("🗑️ Removed wrong move");
-      }, 500); // 500ms delay to show the wrong move briefly before deleting it
-
-      // Don't increment correct moves counter for wrong moves
-    }
+  if (expectedMove && expectedMove instanceof Move && expectedMove.equals(move)) {
+    // Correct move! Advance through the PV sequence
+    correctMovesCount.value++;
+    // Auto-play opponent's move immediately if it exists in original PV
+    setTimeout(() => {
+    // Play piece sound for opponent's auto-move
+      record.goForward(); // Play opponent's move automatically (step 2)
+      playPieceBeat(appSettings.pieceVolume);
+    }, 500); // 0.5 second delay for opponent auto-play
+  } else {
+    // Then properly delete the wrong move (not just navigate back)
+    setTimeout(() => {
+      // Use removeCurrentMove to actually delete the wrong move from the record
+      record.removeCurrentMove();
+    }, 500); // 500ms delay to show the wrong move briefly before deleting it
   }
 };
 
 const goBegin = () => {
   record.goto(0);
+};
+
+const goEnd = () => {
+  record.goto(Number.MAX_SAFE_INTEGER);
 };
 
 const goBack = () => {
@@ -409,42 +304,112 @@ const goForward = () => {
   record.goForward();
 };
 
-const currentBookmarkName = computed(() => {
-  if (currentIndex.value >= 0 && currentIndex.value < bookmarks.value.length) {
-    return bookmarks.value[currentIndex.value];
+const doFlip = () => {
+  flip.value = !flip.value;
+};
+
+const getDisplayScore = (score: number, color: Color, evaluationViewFrom: EvaluationViewFrom) => {
+  return evaluationViewFrom === EvaluationViewFrom.EACH || color == Color.BLACK ? score : -score;
+};
+
+const info = computed(() => {
+  const elements = [];
+  if (props.name) {
+    elements.push(`${props.name}`);
+  }
+  if (props.depth !== undefined) {
+    elements.push(`深さ=${props.depth}`);
+  }
+  if (props.selectiveDepth !== undefined) {
+    elements.push(`選択的深さ=${props.selectiveDepth}`);
+  }
+  if (props.score !== undefined) {
+    elements.push(
+      `評価値=${getDisplayScore(props.score, props.position.color, appSettings.evaluationViewFrom)}`,
+    );
+    if (props.lowerBound) {
+      elements.push("（下界値）");
+    }
+    if (props.upperBound) {
+      elements.push("（上界値）");
+    }
+  }
+  if (props.mate !== undefined) {
+    elements.push(
+      `詰み手数=${getDisplayScore(
+        props.mate,
+        props.position.color,
+        appSettings.evaluationViewFrom,
+      )}`,
+    );
+  }
+  if (props.multiPv) {
+    elements.push(`順位=${props.multiPv}`);
+  }
+  return elements.join(" / ");
+});
+
+const lastMove = computed(() => (record.current.move instanceof Move ? record.current.move : null));
+
+const displayPV = computed(() => {
+  return record.moves.slice(1).map((move) => {
+    return {
+      text: move.displayText,
+      selected: move.ply === record.current.ply,
+    };
+  });
+});
+
+const enableInsertion = computed(() => {
+  return store.appState === AppState.NORMAL && store.record.position.sfen === props.position.sfen;
+});
+
+const shortcutKeys = computed(() => getRecordShortcutKeys(appSettings.recordShortcutKeys));
+
+// Evaluation display
+const evaluationClass = computed(() => {
+  if (extractedEvaluation.value !== null) {
+    const score = extractedEvaluation.value;
+    if (score > 300) return "eval-positive";
+    if (score < -300) return "eval-negative";
+    return "eval-neutral";
   }
   return "";
 });
 
-const currentComment = computed(() => {
-  const currentBookmark = currentBookmarkName.value;
-  if (!currentBookmark) {
-    return "";
-  }
+const insertToRecord = () => {
+  // Get current PV from the bookmark position
+  const currentPVs = store.inCommentPVs;
+  const currentPV = currentPVs.length > 0 ? currentPVs[0] : [];
   
-  // Find the move with this bookmark and get its comment
-  const bookmarkedMove = store.record.moves.find((move) => move.bookmark === currentBookmark);
-  return bookmarkedMove?.comment || "";
-});
+  const n = store.appendMovesSilently(currentPV, {
+    ignoreValidation: true,
+  });
+  messageStore.enqueue({
+    text: t.insertedNMovesToRecord(n),
+  });
+};
 
-const currentBookmarkInfo = computed(() => {
-  return `${currentIndex.value + 1} / ${bookmarks.value.length}: ${currentBookmarkName.value}`;
-});
-
-const tourInfo = computed(() => {
-  const elements = [];
-  elements.push(t.bookmarkTour);
-  elements.push(`${t.bookmark}: ${currentBookmarkName.value}`);
-  elements.push(`${currentIndex.value + 1} / ${bookmarks.value.length}`);
-  return elements.join(" | ");
-});
-
-const lastMove = computed(() => {
-  const current = record.current;
-  return current.move instanceof Move ? current.move : null;
-});
-
-const shortcutKeys = computed(() => getRecordShortcutKeys(appSettings.recordShortcutKeys));
+const insertToComment = () => {
+  // Get current PV from the bookmark position
+  const currentPVs = store.inCommentPVs;
+  const currentPV = currentPVs.length > 0 ? currentPVs[0] : [];
+  
+  store.appendSearchComment(
+    SearchInfoSenderType.RESEARCHER,
+    {
+      depth: props.depth,
+      score: props.score && props.score * (props.position.color == Color.BLACK ? 1 : -1),
+      mate: props.mate,
+      pv: currentPV,
+    },
+    CommentBehavior.APPEND,
+    { engineName: props.name },
+  );
+  messageStore.enqueue({
+    text: t.insertedComment,
+  });
+};
 </script>
 
 <style scoped>
@@ -556,5 +521,24 @@ const shortcutKeys = computed(() => getRecordShortcutKeys(appSettings.recordShor
   padding: 2px 4px;
   border-radius: 2px;
   border: 1px solid var(--border-color);
+}
+
+.evaluation-display {
+  font-weight: bold;
+}
+
+.eval-positive {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.eval-negative {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.eval-neutral {
+  color: var(--text-color);
+  font-weight: bold;
 }
 </style>

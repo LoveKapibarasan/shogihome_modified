@@ -230,7 +230,6 @@ const enableHighlight = computed(() => {
 const evaluationViewFrom = computed(() => {
   return appSettings.evaluationViewFrom;
 });
-
 const getDisplayScore = (score: number, color: Color, evaluationViewFrom: EvaluationViewFrom) => {
   return evaluationViewFrom === EvaluationViewFrom.EACH || color == Color.BLACK ? score : -score;
 };

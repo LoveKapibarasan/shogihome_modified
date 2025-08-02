@@ -128,9 +128,6 @@ const api: Bridge = {
   async loadSFENFile(path: string): Promise<string[]> {
     return await ipcRenderer.invoke(Background.LOAD_SFEN_FILE, path);
   },
-  async listFiles(dir: string, maxDepth: number): Promise<string> {
-    return await ipcRenderer.invoke(Background.LIST_FILES, dir, maxDepth);
-  },
   async loadRecordFileHistory(): Promise<string> {
     return await ipcRenderer.invoke(Background.LOAD_RECORD_FILE_HISTORY);
   },
@@ -400,6 +397,9 @@ const api: Bridge = {
   },
   getPathForFile(file: File): string {
     return webUtils.getPathForFile(file);
+  },
+  async listFiles(dir: string, maxDepth: number): Promise<string[]> {
+    return await ipcRenderer.invoke(Background.LIST_FILES, dir, maxDepth);
   },
   onProgress(callback: (progress: number) => void): void {
     ipcRenderer.on(Renderer.PROGRESS, (_, progress) => {

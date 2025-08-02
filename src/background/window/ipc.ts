@@ -89,8 +89,8 @@ import { getRelativeEnginePath, resolveEnginePath } from "@/background/usi/path.
 import { fileURLToPath } from "@/background/helpers/url.js";
 import { AppSettingsUpdate } from "@/common/settings/app.js";
 import { convertRecordFiles } from "@/background/file/conversion.js";
-import { BatchConversionSettings } from "@/common/settings/conversion.js";
 import { listFiles } from "@/background/helpers/file.js";
+import { BatchConversionSettings } from "@/common/settings/conversion.js";
 import {
   addHistory,
   clearHistory,
@@ -351,6 +351,15 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  Background.LIST_FILES,
+  async (event, dir: string, maxDepth: number): Promise<string[]> => {
+    validateIPCSender(event.senderFrame);
+    getAppLogger().debug(`list files: ${dir}, maxDepth: ${maxDepth}`);
+    return await listFiles(dir, maxDepth);
+  },
+);
+
+ipcMain.handle(
   Background.SHOW_SELECT_IMAGE_DIALOG,
   async (event, defaultURL?: string): Promise<string> => {
     validateIPCSender(event.senderFrame);
@@ -439,15 +448,6 @@ ipcMain.handle(Background.LOAD_SFEN_FILE, async (event, path: string): Promise<s
     .split(/[\r\n]+/) // split by line
     .filter((line) => line !== ""); // remove empty lines
 });
-
-ipcMain.handle(
-  Background.LIST_FILES,
-  async (event, dir: string, maxDepth: number): Promise<string> => {
-    validateIPCSender(event.senderFrame);
-    const files = await listFiles(dir, maxDepth);
-    return JSON.stringify(files);
-  },
-);
 
 ipcMain.handle(Background.LOAD_APP_SETTINGS, async (event): Promise<string> => {
   validateIPCSender(event.senderFrame);

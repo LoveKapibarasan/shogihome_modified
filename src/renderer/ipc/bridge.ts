@@ -54,7 +54,6 @@ export interface Bridge {
   convertRecordFiles(json: string): Promise<string>;
   showSelectSFENDialog(lastPath: string): Promise<string>;
   loadSFENFile(path: string): Promise<string[]>;
-  listFiles(dir: string, maxDepth: number): Promise<string>;
   onOpenRecord(callback: (path: string) => void): void;
 
   // Book
@@ -140,6 +139,7 @@ export interface Bridge {
   // MISC
   showSelectFileDialog(): Promise<string>;
   showSelectDirectoryDialog(defaultPath?: string): Promise<string>;
+  listFiles(dir: string, maxDepth: number): Promise<string[]>;
   openExplorer(path: string): void;
   openWebBrowser(url: string): void;
   isEncryptionAvailable(): Promise<boolean>;

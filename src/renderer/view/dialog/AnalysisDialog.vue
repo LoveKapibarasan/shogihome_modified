@@ -108,9 +108,7 @@ const settings = ref(defaultAnalysisSettings());
 const engines = ref(new USIEngines());
 const engineURI = ref("");
 
-console.log("[AnalysisDialog] Before busyState.retain() - isBusy:", busyState.isBusy);
 busyState.retain();
-console.log("[AnalysisDialog] After busyState.retain() - isBusy:", busyState.isBusy);
 
 onMounted(async () => {
   try {
@@ -121,9 +119,7 @@ onMounted(async () => {
     useErrorStore().add(e);
     store.destroyModalDialog();
   } finally {
-    console.log("[AnalysisDialog] onMounted busyState.release() - before isBusy:", busyState.isBusy);
     busyState.release();
-    console.log("[AnalysisDialog] onMounted busyState.release() - after isBusy:", busyState.isBusy);
   }
 });
 

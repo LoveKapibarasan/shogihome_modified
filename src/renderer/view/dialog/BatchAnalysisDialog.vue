@@ -122,9 +122,7 @@ const engineURI = ref("");
 // 連続解析用の追加データ
 const inputFolder = ref("");
 
-console.log("[BatchAnalysisDialog] Initial busyState.retain() - before isBusy:", busyState.isBusy);
 busyState.retain(); //counter = 1
-console.log("[BatchAnalysisDialog] Initial busyState.retain() - after isBusy:", busyState.isBusy);
 onMounted(async () => {
   try {
     settings.value = await api.loadAnalysisSettings();
@@ -134,9 +132,7 @@ onMounted(async () => {
     useErrorStore().add(e);
     store.destroyModalDialog();
   } finally {
-    console.log("[BatchAnalysisDialog] onMounted busyState.release() - before isBusy:", busyState.isBusy);
     busyState.release(); //counter = 0
-    console.log("[BatchAnalysisDialog] onMounted busyState.release() - after isBusy:", busyState.isBusy);
   }
 });
 
@@ -178,9 +174,19 @@ const onStart = async () => {
     }
     let processedCount = 0;
     let errorCount = 0;
+
+    const doneList: string[] = [];
     // 2. 各ファイルを処理
     for (const filePath of recordFiles) {
+      // 既に処理済みかチェック
+      if (doneList.includes(filePath)) {
+        console.log(`スキップ: ${filePath} (既に処理済み)`);
+        continue;
+      }
+      
       try {
+        console.log(`処理開始: ${filePath}`);
+        doneList.push(filePath);
         // ファイル読み込みのためにNORMAL状態に偽装
         // @ts-expect-error - 内部プロパティへの一時的なアクセス
         store._appState = AppState.NORMAL;
@@ -195,7 +201,8 @@ const onStart = async () => {
 
         if (!engineURI.value || !engines.value.hasEngine(engineURI.value)) {
           useErrorStore().add(t.engineNotSelected);
-          return;
+          errorCount++;
+          continue;
         }
         const engine = engines.value.getEngine(engineURI.value);
         const newSettings = {
@@ -205,47 +212,32 @@ const onStart = async () => {
         const error = validateAnalysisSettings(newSettings);
         if (error) {
           useErrorStore().add(error);
-          return;
+          errorCount++;
+          continue;
         }
         // TODO: Understand busyState
-        console.log("[BatchAnalysisDialog] Before busyState.release() - isBusy:", busyState.isBusy);
         busyState.release();
-        console.log("[BatchAnalysisDialog] After busyState.release() - isBusy:", busyState.isBusy);
-        console.log("[BatchAnalysisDialog] Before store.startAnalysis() - isBusy:", busyState.isBusy);
         store.startAnalysis(newSettings);
-        console.log("[BatchAnalysisDialog] After store.startAnalysis() - isBusy:", busyState.isBusy);
 
         // 解析完了を待つ
-        console.log("[BatchAnalysisDialog] Before waitForAnalysisComplete() - isBusy:", busyState.isBusy);
         await waitForAnalysisComplete();
-        console.log("[BatchAnalysisDialog] After waitForAnalysisComplete() - isBusy:", busyState.isBusy);
-        console.log("[BatchAnalysisDialog] Before busyState.retain() - isBusy:", busyState.isBusy);
         busyState.retain();
-        console.log("[BatchAnalysisDialog] After busyState.retain() - isBusy:", busyState.isBusy);
         // 解析完了後、状態をBATCH_ANALYSIS_DIALOGに戻す
         // batch analysis dialog is shown
         // @ts-expect-error - 内部プロパティへの一時的なアクセス
         store._appState = AppState.BATCH_ANALYSIS_DIALOG;
         
         // 現在のファイルパスに上書き保存
-        if (store.recordFilePath) {
-          // 一時的にNORMALステートにして保存操作を許可
-          // @ts-expect-error - 内部プロパティへの一時的なアクセス
-          const originalState = store._appState;
-          // @ts-expect-error - 内部プロパティへの一時的なアクセス
-          store._appState = AppState.NORMAL;
-          
-          try {
-            store.saveRecord({ overwrite: true });
-            // 状態を戻す
-            // @ts-expect-error - 内部プロパティへの一時的なアクセス
-            store._appState = originalState;
-          } catch (error) {
-            // @ts-expect-error - 内部プロパティへの一時的なアクセス
-            store._appState = originalState;
-            throw error;
-          }
-        }
+        
+        // 一時的にNORMALステートにして保存操作を許可
+        // @ts-expect-error - 内部プロパティへの一時的なアクセス
+        const originalState = store._appState;
+        // @ts-expect-error - 内部プロパティへの一時的なアクセス
+        store._appState = AppState.NORMAL;
+        store.saveRecord({ overwrite: true });
+        // 状態を戻す
+        // @ts-expect-error - 内部プロパティへの一時的なアクセス
+        store._appState = originalState;
 
         processedCount++;
       } catch (fileError) {
@@ -253,7 +245,6 @@ const onStart = async () => {
         errorCount++;
       }
     }
-
     useMessageStore().enqueue({
       text: `連続解析完了: 処理=${processedCount}/${recordFiles.length}, エラー=${errorCount}`,
     });

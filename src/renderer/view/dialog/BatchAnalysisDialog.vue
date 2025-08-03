@@ -123,6 +123,7 @@ const engineURI = ref("");
 const inputFolder = ref("");
 
 busyState.retain(); //counter = 1
+
 onMounted(async () => {
   try {
     settings.value = await api.loadAnalysisSettings();
@@ -153,8 +154,6 @@ const waitForAnalysisComplete = (): Promise<void> => {
   });
 };
 
-
-
 const onStart = async () => {
   if (!inputFolder.value.trim()) {
     useErrorStore().add("入力フォルダを選択してください");
@@ -174,24 +173,25 @@ const onStart = async () => {
     }
     let processedCount = 0;
     let errorCount = 0;
-
-    const doneList: string[] = [];
+    const analyzedFiles: string[] = [];
+    
     // 2. 各ファイルを処理
     for (const filePath of recordFiles) {
-      // 既に処理済みかチェック
-      if (doneList.includes(filePath)) {
-        console.log(`スキップ: ${filePath} (既に処理済み)`);
-        continue;
-      }
-      
       try {
-        console.log(`処理開始: ${filePath}`);
-        doneList.push(filePath);
+        // 既に解析済みかチェック
+        if (analyzedFiles.includes(filePath)) {
+          continue;
+        }
+        
+        // 処理開始をマーク（重複防止）
+        analyzedFiles.push(filePath);
+        
         // ファイル読み込みのためにNORMAL状態に偽装
         // @ts-expect-error - 内部プロパティへの一時的なアクセス
         store._appState = AppState.NORMAL;
-
+        
         // ファイル読み込み
+        busyState.forceIdle(); // 強制的にカウントを0にしてisBusyをfalseにする
         store.openRecord(filePath);
 
         // 状態をANALYSIS_DIALOG
@@ -201,8 +201,7 @@ const onStart = async () => {
 
         if (!engineURI.value || !engines.value.hasEngine(engineURI.value)) {
           useErrorStore().add(t.engineNotSelected);
-          errorCount++;
-          continue;
+          return;
         }
         const engine = engines.value.getEngine(engineURI.value);
         const newSettings = {
@@ -212,46 +211,35 @@ const onStart = async () => {
         const error = validateAnalysisSettings(newSettings);
         if (error) {
           useErrorStore().add(error);
-          errorCount++;
-          continue;
+          return;
         }
         // TODO: Understand busyState
-        busyState.release();
+        busyState.forceIdle();
         store.startAnalysis(newSettings);
 
         // 解析完了を待つ
         await waitForAnalysisComplete();
-        busyState.retain();
-        // 解析完了後、状態をBATCH_ANALYSIS_DIALOGに戻す
+        busyState.forceIdle(); // 強制的にカウントを0にしてisBusyをfalseにする
+        // 上書き保存
+        store.saveRecord({ overwrite: true });
+         // 解析完了後、状態をBATCH_ANALYSIS_DIALOGに戻す
         // batch analysis dialog is shown
         // @ts-expect-error - 内部プロパティへの一時的なアクセス
         store._appState = AppState.BATCH_ANALYSIS_DIALOG;
-        
-        // 現在のファイルパスに上書き保存
-        
-        // 一時的にNORMALステートにして保存操作を許可
-        // @ts-expect-error - 内部プロパティへの一時的なアクセス
-        const originalState = store._appState;
-        // @ts-expect-error - 内部プロパティへの一時的なアクセス
-        store._appState = AppState.NORMAL;
-        store.saveRecord({ overwrite: true });
-        // 状態を戻す
-        // @ts-expect-error - 内部プロパティへの一時的なアクセス
-        store._appState = originalState;
-
         processedCount++;
       } catch (fileError) {
         useErrorStore().add(`ファイル処理エラー: ${filePath} - ${fileError}`);
         errorCount++;
       }
     }
+
     useMessageStore().enqueue({
       text: `連続解析完了: 処理=${processedCount}/${recordFiles.length}, エラー=${errorCount}`,
     });
     store.closeModalDialog();
   } catch (error) {
     useErrorStore().add("連続解析中にエラーが発生しました: " + error);
-  } 
+  }
 };
 
 const onCancel = () => {

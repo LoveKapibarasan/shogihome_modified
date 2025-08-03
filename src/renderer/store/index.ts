@@ -1384,14 +1384,22 @@ class Store {
   }
 
   saveRecord(options?: { overwrite?: boolean; format?: RecordFileFormat }): void {
+    console.log('BatchAnalysis: saveRecord called with options:', options);
+    console.log('BatchAnalysis: current appState:', this.appState);
+    console.log('BatchAnalysis: isBusy:', useBusyState().isBusy);
+    console.log('BatchAnalysis: recordFilePath:', this.recordManager.recordFilePath);
+    
     if (this.appState !== AppState.NORMAL || useBusyState().isBusy) {
+      console.log('BatchAnalysis: saveRecord early return - appState or busy');
       return;
     }
     useBusyState().retain();
     Promise.resolve()
       .then(() => {
         const path = this.recordManager.recordFilePath;
+        console.log('BatchAnalysis: existing path:', path);
         if (options?.overwrite && path) {
+          console.log('BatchAnalysis: using existing path for overwrite:', path);
           return path;
         }
         const appSettings = useAppSettings();
@@ -1401,13 +1409,17 @@ class Store {
             template: appSettings.recordFileNameTemplate,
             extension: options?.format || appSettings.defaultRecordFileFormat,
           });
+        console.log('BatchAnalysis: showing save dialog with defaultPath:', defaultPath);
         return api.showSaveRecordDialog(defaultPath);
       })
       .then((path) => {
         if (!path) {
+          console.log('BatchAnalysis: no path selected, aborting save');
           return;
         }
+        console.log('BatchAnalysis: saving to path:', path);
         return this.saveRecordByPath(path, { detectGarbled: true }).then(() => {
+          console.log('BatchAnalysis: save completed successfully');
           const fileFormat = detectRecordFileFormatByPath(path) as RecordFileFormat;
           const props = detectUnsupportedRecordProperties(this.recordManager.record, fileFormat);
           const items = Object.entries(props)
@@ -1442,6 +1454,7 @@ class Store {
   }
 
   private async saveRecordByPath(path: string, opt?: { detectGarbled: boolean }): Promise<void> {
+    console.log('BatchAnalysis: saveRecordByPath called with path:', path);
     const appSettings = useAppSettings();
     const result = this.recordManager.exportRecordAsBuffer(path, {
       returnCode: appSettings.returnCode,
@@ -1449,10 +1462,13 @@ class Store {
       csa: { v3: appSettings.useCSAV3 },
     });
     if (result instanceof Error) {
+      console.log('BatchAnalysis: exportRecordAsBuffer failed:', result);
       throw result;
     }
     try {
+      console.log('BatchAnalysis: calling api.saveRecord with path:', path);
       await api.saveRecord(path, result.data);
+      console.log('BatchAnalysis: api.saveRecord completed successfully');
       if (result.garbled && !this.garbledNotified) {
         useMessageStore().enqueue({
           text: `${t.recordSavedWithGarbledCharacters}\n${t.pleaseConsiderToUseKIFU}\n${t.youCanChangeDefaultRecordFileFormatFromAppSettings}`,
@@ -1460,6 +1476,7 @@ class Store {
         this.garbledNotified = true;
       }
     } catch (e) {
+      console.log('BatchAnalysis: api.saveRecord failed:', e);
       throw new Error(`${t.failedToSaveRecord}: ${e}`);
     }
   }

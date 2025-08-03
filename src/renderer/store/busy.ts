@@ -23,6 +23,11 @@ export class BusyState {
     }
   }
 
+  forceIdle(): void {
+    this.count = 0;
+    this._progress = undefined;
+  }
+
   updateProgress(progress: number) {
     if (this.count) {
       this._progress = progress;

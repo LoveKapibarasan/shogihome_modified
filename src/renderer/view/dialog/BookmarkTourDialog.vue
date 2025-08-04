@@ -262,32 +262,65 @@ const getEvaluationFromComment = (comment: string): number | null => {
 };
 
 const onMove = (move: Move) => {
+  // Use the next move in the PV as the expected move
+  const expectedMove = record.moves[record.current.ply + 1]?.move;
+
   record.append(move);
   playPieceBeat(appSettings.pieceVolume);
-
-  // Use the PV from the current local record (no need to jump to bookmark again)
-  const expectedMove = record.moves[record.current.ply]?.move;
-
   // Quiz/training mode behavior
-    // STRICT CHECK: Only accept if it's exactly the next move in our original training PV
+  // STRICT CHECK: Only accept if it's exactly the next move in our original training PV
+  // Log expected and input moves in a robust, readable way
+  const squareToString = (sq: any) => {
+    if (!sq) return undefined;
+    if (typeof sq.file === "number" && typeof sq.rank === "number") {
+      // 9x9将棋座標: file=9が左端, rank=1が上
+      // rank: 1->a, 2->b, ... 9->i
+      return `${sq.file}${String.fromCharCode(96 + sq.rank)}`;
+    }
+    if (typeof sq.toString === "function") {
+      return sq.toString();
+    }
+    return String(sq);
+  };
+  const formatMoveForLog = (m: any) => {
+    if (!m) return m;
+    const fromStr = squareToString(m.from);
+    const toStr = squareToString(m.to);
+    let displayText = m.displayText;
+    if (!displayText && fromStr && toStr) {
+      displayText = `${fromStr}${toStr}${m.promote ? "+" : ""}`;
+    }
+    return {
+      displayText,
+      from: fromStr,
+      to: toStr,
+      promote: m.promote,
+      color: m.color,
+      pieceType: m.pieceType,
+    };
+  };
+  console.log("[BookmarkTour] 正解手:", formatMoveForLog(expectedMove));
+  console.log("[BookmarkTour] 入力手:", formatMoveForLog(move));
   if (expectedMove && expectedMove instanceof Move && expectedMove.equals(move)) {
     // Correct move! Advance through the PV sequence
     correctMovesCount.value++;
     // Auto-play opponent's move immediately if it exists in original PV
     setTimeout(() => {
-    // Play piece sound for opponent's auto-move
+      // Play piece sound for opponent's auto-move
       record.goForward(); // Play opponent's move automatically (step 2)
       playPieceBeat(appSettings.pieceVolume);
+      console.log("[BookmarkTour] 相手手を自動再生");
     }, 500); // 0.5 second delay for opponent auto-play
   } else {
     // Then properly delete the wrong move (not just navigate back)
+    console.log("[BookmarkTour] 不正解手: ", move);
     setTimeout(() => {
       // Use removeCurrentMove to actually delete the wrong move from the record
       record.removeCurrentMove();
+      console.log("[BookmarkTour] 不正解手を削除");
     }, 500); // 500ms delay to show the wrong move briefly before deleting it
   }
 };
-
 const goBegin = () => {
   record.goto(0);
 };
